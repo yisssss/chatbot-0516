@@ -1,6 +1,19 @@
 import Head from "next/head";
 import { Chat } from "@/components/Chat";
 import { useEffect, useRef, useState } from "react";
+import { db } from "@/firebase";
+import {
+  collection,
+  query,
+  doc,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  orderBy,
+} from "firebase/firestore";
+
+const issave = true;
+const logs = collection(db, "messagelogs");
 
 export default function Home() {
   const [messages, setMessages] = useState([]);
@@ -13,9 +26,8 @@ export default function Home() {
 
   const handleSend = async (message) => {
     const updatedMessages = [...messages, message];
-
+    console.log(updatedMessages);
     setMessages(updatedMessages);
-
     setLoading(true);
 
     const response = await fetch("/api/chat", {
@@ -28,31 +40,58 @@ export default function Home() {
       }),
     });
 
+    console.log(1, response);
     if (!response.ok) {
       setLoading(false);
       throw new Error(response.statusText);
     }
 
-    const result = await response.json();
+    if (issave) {
+      const now = new Date();
+      const docRef = await addDoc(logs, {
+        role: message.role,
+        content: message.content,
+        date: now,
+      });
+    }
 
+    const result = await response.json();
     if (!result) {
       return;
     }
-    //console.log(result);
 
+    console.log(result);
     setLoading(false);
     setMessages((messages) => [...messages, result]);
+
+    if (issave) {
+      const now = new Date();
+      const docRef = await addDoc(logs, {
+        role: result.role,
+        content: result.content,
+        date: now,
+      });
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    const q = query(logs, orderBy("date", "asc"));
+    const logs_data = await getDocs(q);
+    const logs_arr = [];
+    logs_data.docs.forEach((doc) => {
+      logs_arr.push({
+        role: doc.data()["role"],
+        content: doc.data()["content"],
+      });
+    });
     setMessages([
+      ...logs_arr,
       {
         role: "assistant",
         content: "안녕? 나는 영희야. 오늘은 무슨 일이 있었니?",
       },
     ]);
   };
-
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -61,6 +100,19 @@ export default function Home() {
     handleReset();
   }, []);
 
+  const deletelog = async () => {
+    const q = query(logs);
+    const logs_data = await getDocs(q);
+    logs_data.forEach((doc) => {
+      deleteDoc(doc.ref);
+    });
+    setMessages([
+      {
+        role: "assistant",
+        content: "챗봇 'GPT'입니다. 무엇을 도와드릴까요?",
+      },
+    ]);
+  };
   return (
     <>
       <Head>

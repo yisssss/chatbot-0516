@@ -1,4 +1,6 @@
 import { Configuration, OpenAIApi } from "openai";
+import { db } from "@/firebase";
+import { collection, query, doc, getDocs, addDoc } from "firebase/firestore";
 
 const configuration = new Configuration({
   organization: process.env.OPENAI_ORGANIZATION,
@@ -18,10 +20,15 @@ export default async (req, res) => {
 
   const { messages } = req.body;
 
-  console.log([
+  /*console.log([
     { role: "system", contect: systemPrompt },
     ...messages.slice(-6),
-  ]);
+  ]);*/
+
+  const docRef = await addDoc(todoCollection, {
+    role: "assistant",
+    content: message,
+  });
 
   const completion = await openai.createChatCompletion({
     model: "gpt-3.5-turbo",
